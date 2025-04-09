@@ -8,11 +8,13 @@ import bytecode;
 
 const dmInstCapacity = 1024;
 const dmStackCapacity = 1024;
+const dmCallStackCapacity = 256;
 
 enum Result
 {
 	OK = 0,
 	STACK_OVERFLOW, STACK_UNDERFLOW,
+	CALLSTACK_OVERFLOW, CALLSTACK_UNDERFLOW,
 	ILLEGAL_INST_POINTER, ILLEGAL_STACK_POINTER,
 	ILLEGAL_INSTRUCTION,
 }
@@ -20,12 +22,16 @@ enum Result
 struct DM
 {
 	bool halt;
+
     Inst[dmInstCapacity] instructions;
 	long instructionCount;
     long instPointer;
 
     long[dmStackCapacity] stack;
-	long stackSize;
+	long stackCount;
+
+    long[dmCallStackCapacity] callStack;
+	long callStackCount;
 }
 
 bool appendInstruction(DM* dm, Inst inst)
@@ -99,9 +105,15 @@ void dumpDm(DM* dm)
 	else
 		writeln("  [empty]");
 
-	writefln("Stack: [%s]", dm.stackSize);
-	foreach (idx; 0..dm.stackSize) {
+	writefln("Stack: [%s]", dm.stackCount);
+	foreach (idx; 0..dm.stackCount) {
 		writeln("  ", dm.stack[idx]);
+	}
+	writeln("  [top]");
+
+	writefln("Callstack: [%s]", dm.callStackCount);
+	foreach (idx; 0..dm.callStackCount) {
+		writeln("  ", dm.callStack[idx]);
 	}
 	writeln("  [top]");
 }
@@ -113,112 +125,112 @@ Result executeOne(DM* dm)
 	auto instruction = dm.instructions[dm.instPointer];
 	switch (instruction.type) {
 	case InstType.PUSH:
-		if (dm.stackSize >= dmInstCapacity)
+		if (dm.stackCount >= dmInstCapacity)
 			return Result.STACK_OVERFLOW;
 
-		dm.stack[dm.stackSize] = instruction.operand;
-		dm.stackSize++;
+		dm.stack[dm.stackCount] = instruction.operand;
+		dm.stackCount++;
 		break;
 
 	case InstType.POP:
-		if (dm.stackSize < 1)
+		if (dm.stackCount < 1)
 			return Result.STACK_UNDERFLOW;
 
-		dm.stack[dm.stackSize--] = 0;
+		dm.stack[dm.stackCount--] = 0;
 		break;
 
 	case InstType.SWAP:
-		if (dm.stackSize < 2)
+		if (dm.stackCount < 2)
 			return Result.STACK_UNDERFLOW;
 
-		auto temp = dm.stack[dm.stackSize - 1];
-		dm.stack[dm.stackSize - 1] = dm.stack[dm.stackSize - 2];
-		dm.stack[dm.stackSize - 2] = temp;
+		auto temp = dm.stack[dm.stackCount - 1];
+		dm.stack[dm.stackCount - 1] = dm.stack[dm.stackCount - 2];
+		dm.stack[dm.stackCount - 2] = temp;
 		break;
 
 	case InstType.ADD:
-		if (dm.stackSize < 2)
+		if (dm.stackCount < 2)
 			return Result.STACK_UNDERFLOW;
 
-		dm.stack[dm.stackSize - 2] += dm.stack[dm.stackSize - 1];
-		dm.stack[--dm.stackSize] = 0;
+		dm.stack[dm.stackCount - 2] += dm.stack[dm.stackCount - 1];
+		dm.stack[--dm.stackCount] = 0;
 		break;
 
 	case InstType.SUB:
-		if (dm.stackSize < 2)
+		if (dm.stackCount < 2)
 			return Result.STACK_UNDERFLOW;
 
-		dm.stack[dm.stackSize - 2] -= dm.stack[dm.stackSize - 1];
-		dm.stack[--dm.stackSize] = 0;
+		dm.stack[dm.stackCount - 2] -= dm.stack[dm.stackCount - 1];
+		dm.stack[--dm.stackCount] = 0;
 		break;
 
 	case InstType.MUL:
-		if (dm.stackSize < 2)
+		if (dm.stackCount < 2)
 			return Result.STACK_UNDERFLOW;
 
-		dm.stack[dm.stackSize - 2] *= dm.stack[dm.stackSize - 1];
-		dm.stack[--dm.stackSize] = 0;
+		dm.stack[dm.stackCount - 2] *= dm.stack[dm.stackCount - 1];
+		dm.stack[--dm.stackCount] = 0;
 		break;
 
 	case InstType.DIV:
-		if (dm.stackSize < 2)
+		if (dm.stackCount < 2)
 			return Result.STACK_UNDERFLOW;
 
-		dm.stack[dm.stackSize - 2] /= dm.stack[dm.stackSize - 1];
-		dm.stack[--dm.stackSize] = 0;
+		dm.stack[dm.stackCount - 2] /= dm.stack[dm.stackCount - 1];
+		dm.stack[--dm.stackCount] = 0;
 		break;
 
 	case InstType.DUP:
-		if (dm.stackSize >= dmStackCapacity)
+		if (dm.stackCount >= dmStackCapacity)
 			return Result.STACK_OVERFLOW;
-		if (dm.stackSize < (instruction.operand + 1))
+		if (dm.stackCount < (instruction.operand + 1))
 			return Result.ILLEGAL_STACK_POINTER;
-		dm.stack[dm.stackSize++] = dm.stack[dm.stackSize - instruction.operand - 2];
+		dm.stack[dm.stackCount++] = dm.stack[dm.stackCount - instruction.operand - 2];
 		break;
 
 	case InstType.EQ:
-		if (dm.stackSize < 2)
+		if (dm.stackCount < 2)
 			return Result.STACK_UNDERFLOW;
-		long res = dm.stack[dm.stackSize - 1] == dm.stack[dm.stackSize - 2];
-		dm.stack[dm.stackSize - 2] = res;
-		dm.stackSize--;
+		long res = dm.stack[dm.stackCount - 1] == dm.stack[dm.stackCount - 2];
+		dm.stack[dm.stackCount - 2] = res;
+		dm.stackCount--;
 		break;
 
 	case InstType.NEQ:
-		if (dm.stackSize < 2)
+		if (dm.stackCount < 2)
 			return Result.STACK_UNDERFLOW;
-		long res = dm.stack[dm.stackSize - 1] != dm.stack[dm.stackSize - 2];
-		dm.stack[dm.stackSize - 2] = res;
-		dm.stackSize--;
+		long res = dm.stack[dm.stackCount - 1] != dm.stack[dm.stackCount - 2];
+		dm.stack[dm.stackCount - 2] = res;
+		dm.stackCount--;
 		break;
 
 	case InstType.GT:
-		if (dm.stackSize < 2)
+		if (dm.stackCount < 2)
 			return Result.STACK_UNDERFLOW;
-		long res = dm.stack[dm.stackSize - 1] > dm.stack[dm.stackSize - 2];
-		dm.stack[dm.stackSize - 2] = res;
-		dm.stackSize--;
+		long res = dm.stack[dm.stackCount - 1] > dm.stack[dm.stackCount - 2];
+		dm.stack[dm.stackCount - 2] = res;
+		dm.stackCount--;
 		break;
 
 	case InstType.LT:
-		if (dm.stackSize < 2)
+		if (dm.stackCount < 2)
 			return Result.STACK_UNDERFLOW;
-		long res = dm.stack[dm.stackSize - 1] < dm.stack[dm.stackSize - 2];
-		dm.stack[dm.stackSize - 2] = res;
-		dm.stackSize--;
+		long res = dm.stack[dm.stackCount - 1] < dm.stack[dm.stackCount - 2];
+		dm.stack[dm.stackCount - 2] = res;
+		dm.stackCount--;
 		break;
 
 	case InstType.JMPZ_ABS:
 		if (instruction.operand > dm.instructionCount || instruction.operand < 0)
 			return Result.ILLEGAL_INST_POINTER;
 
-		if (dm.stackSize < 1)
+		if (dm.stackCount < 1)
 			return Result.STACK_UNDERFLOW;
 
-		if (dm.stack[dm.stackSize - 1] != 0)
+		if (dm.stack[dm.stackCount - 1] != 0)
 			break;
 
-		dm.stack[--dm.stackSize] = 0;
+		dm.stack[--dm.stackCount] = 0;
 		dm.instPointer = instruction.operand;
 		return Result.OK;
 
@@ -226,15 +238,36 @@ Result executeOne(DM* dm)
 		if ((dm.instPointer + instruction.operand) > dm.instructionCount || (dm.instPointer + instruction.operand) < 0)
 			return Result.ILLEGAL_INST_POINTER;
 
-		if (dm.stackSize < 1)
+		if (dm.stackCount < 1)
 			return Result.STACK_UNDERFLOW;
 
-		if (dm.stack[dm.stackSize - 1] != 0)
+		if (dm.stack[dm.stackCount - 1] != 0)
 			break;
 
-		dm.stack[--dm.stackSize] = 0;
+		dm.stack[--dm.stackCount] = 0;
 		dm.instPointer += instruction.operand;
 		return Result.OK;
+
+	case InstType.CALL:
+		if (instruction.operand > dm.instructionCount || instruction.operand < 0)
+			return Result.ILLEGAL_INST_POINTER;
+
+		if (dm.callStackCount >= dmCallStackCapacity)
+			return Result.CALLSTACK_OVERFLOW;
+
+		dm.callStack[dm.callStackCount++] = dm.instPointer;
+		dm.instPointer = instruction.operand;
+
+		return Result.OK;
+
+	case InstType.RET:
+		if (dm.callStackCount < 1)
+			return Result.CALLSTACK_UNDERFLOW;
+
+		dm.instPointer = dm.callStack[--dm.callStackCount];
+		dm.callStack[dm.callStackCount] = 0;
+
+		break;
 
 	case InstType.HALT:
 		dm.halt = true;
@@ -246,13 +279,6 @@ Result executeOne(DM* dm)
 	dm.instPointer++;
 	return Result.OK;
 }
-
-// HALT = 0,
-// PUSH, POP,
-// ADD, SUB, MUL, DIV,
-// DUP_REL, DUP_ABS,
-// JMP_REL, JMP_ABS,
-
 
 void executeUntilHalt(DM* dm)
 {
@@ -294,20 +320,7 @@ int main(string[] args)
 		return 1;
 	}
 	dumpDm(&dm);
-	executeUntilHalt(&dm);
+	manualStepping(&dm);
 	dumpDm(&dm);
     return 0;
 }
-
-
-// appendInstruction(&dm, Inst(InstType.PUSH, 35));
-// appendInstruction(&dm, Inst(InstType.PUSH, 35));
-// appendInstruction(&dm, Inst(InstType.ADD));
-// appendInstruction(&dm, Inst(InstType.PUSH, 1));
-// appendInstruction(&dm, Inst(InstType.SUB));
-// appendInstructions(&dm, [Inst(InstType.PUSH, 0),
-// 						 Inst(InstType.PUSH, 1),
-// 						 Inst(InstType.SWAP),
-// 						 Inst(InstType.SUB),
-// 						 Inst(InstType.JMPZ_ABS, 0),
-// 						 Inst(InstType.HALT)]);
