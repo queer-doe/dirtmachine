@@ -4,5 +4,7 @@ loop:
     dup 1
     dup 1
     add
-    push 0
+    dup 0
+    push 1000
+    lt
     jmpz@ loop
