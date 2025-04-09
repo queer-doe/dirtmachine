@@ -61,10 +61,42 @@ struct Inst
 
     void toString(scope void delegate(const(char)[]) sink) const
 	{
-		if (this.takesArgument)
-			sink("%s(%s)".format(this.type, this.operand));
-		else
-			sink("%s".format(this.type));
+		final switch (this.type) {
+		case InstType.HALT:
+			sink("halt"); break;
+		case InstType.POP:
+			sink("pop"); break;
+		case InstType.SWAP:
+			sink("swap"); break;
+		case InstType.ADD:
+			sink("add"); break;
+		case InstType.SUB:
+			sink("sub"); break;
+		case InstType.MUL:
+			sink("mul"); break;
+		case InstType.DIV:
+			sink("div"); break;
+		case InstType.EQ:
+			sink("eq"); break;
+		case InstType.NEQ:
+			sink("neq"); break;
+		case InstType.GT:
+			sink("gt"); break;
+		case InstType.LT:
+			sink("lt"); break;
+		case InstType.RET:
+			sink("ret " ~ this.operand.text); break;
+		case InstType.PUSH:
+			sink("push " ~ this.operand.text); break;
+		case InstType.DUP:
+			sink("dup " ~ this.operand.text); break;
+		case InstType.JMPZ_REL:
+			sink("jmpz " ~ this.operand.text); break;
+		case InstType.JMPZ_ABS:
+			sink("jmpz@ " ~ this.operand.text); break;
+		case InstType.CALL:
+			sink("call " ~ this.operand.text); break;
+		}
     }
 
 	ubyte[] toByteCode() {
