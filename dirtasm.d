@@ -101,13 +101,18 @@ int main(string[] args)
 		case "jmpz@":
 			if (!got) {
 				needLabels ~= inst[1];
+				arg = -1;
 			}
 
 			instructions ~= Inst(InstType.JMPZ_ABS, arg, args[1], ln+1);
 			break;
 
 		case "call":
-			needLabels ~= inst[1];
+			if (!got) {
+				needLabels ~= inst[1];
+				arg = -1;
+			}
+
 			instructions ~= Inst(InstType.CALL, arg, args[1], ln+1);
 			break;
 
@@ -177,7 +182,7 @@ int main(string[] args)
 
 	ulong jmpCount = 0;
 	foreach (inst; instructions) {
-		if (inst.type == InstType.JMPZ_ABS || inst.type == InstType.CALL) {
+		if ((inst.type == InstType.JMPZ_ABS || inst.type == InstType.CALL) && inst.operand == -1) {
 			if (needLabels[jmpCount] in labels)
 				inst.operand = labels[needLabels[jmpCount]];
 			else {
