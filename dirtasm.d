@@ -3,6 +3,7 @@ import std.conv;
 import std.file;
 import std.stdio;
 import std.string;
+import std.path;
 
 import bytecode;
 
@@ -46,12 +47,27 @@ int main(string[] args)
 	bool err = false;
 	long instCount = 0;
 
-	foreach (ln, line; lines) {
+	for (int ln = 0; ln < lines.length; ln++) {
+		string line = lines[ln];
 		line = line.strip();
+
 		if (line == "")
 			continue;
 		if (line.startsWith(";"))
 			continue;
+
+		if (line.startsWith("#include ")) {
+			string[] newLines;
+			try
+				newLines = (cast(string)args[1].absolutePath.dirName.buildPath(line.split(" ")[1]).read()).split("\n");
+			catch (Exception o) {
+				writefln("ERROR: Could not read file `%s`", args[1]);
+				return 1;
+			}
+			lines[ln] = "";
+			lines.insertInPlace(ln, newLines);
+			continue;
+		}
 
 		if (line.endsWith(":")) {
 			labels[line.split(":")[0]] = instCount;
@@ -85,11 +101,18 @@ int main(string[] args)
 		case "jmpz@":
 			if (!got) {
 				needLabels ~= inst[1];
-				// writefln(invArgErrFormat, args[1], ln+1, inst[0]);
-				// err = true;
 			}
 
 			instructions ~= Inst(InstType.JMPZ_ABS, arg, args[1], ln+1);
+			break;
+
+		case "call":
+			needLabels ~= inst[1];
+			instructions ~= Inst(InstType.CALL, arg, args[1], ln+1);
+			break;
+
+		case "ret":
+			instructions ~= Inst(InstType.RET, arg, args[1], ln+1);
 			break;
 
 		case "push":
@@ -154,7 +177,7 @@ int main(string[] args)
 
 	ulong jmpCount = 0;
 	foreach (inst; instructions) {
-		if (inst.type == InstType.JMPZ_ABS) {
+		if (inst.type == InstType.JMPZ_ABS || inst.type == InstType.CALL) {
 			if (needLabels[jmpCount] in labels)
 				inst.operand = labels[needLabels[jmpCount]];
 			else {

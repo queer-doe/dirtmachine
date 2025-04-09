@@ -8,6 +8,7 @@ enum InstType
     DUP,
 	EQ, NEQ, GT, LT,
 	JMPZ_REL, JMPZ_ABS,
+	CALL, RET,
 }
 
 struct Inst
@@ -31,6 +32,7 @@ struct Inst
 		case InstType.NEQ:
 		case InstType.GT:
 		case InstType.LT:
+		case InstType.RET:
 			sink("%s".format(this.type));
 			break;
 		default:
@@ -87,6 +89,12 @@ struct Inst
 
 		case InstType.JMPZ_ABS:
 			return [cast(ubyte)InstType.JMPZ_ABS, this.operand];
+
+		case InstType.CALL:
+			return [cast(ubyte)InstType.CALL, this.operand];
+
+		case InstType.RET:
+			return [cast(ubyte)InstType.RET];
 
 		default:
 			return [];
