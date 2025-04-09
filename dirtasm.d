@@ -41,7 +41,7 @@ int main(string[] args)
 
 	long[string] labels;
 
-	long[] byteCode;
+	ubyte[] byteCode;
 	Inst[] instructions;
 	string[] needLabels;
 	bool err = false;
@@ -194,7 +194,7 @@ int main(string[] args)
 	}
 
 
-	std.file.write(args[2], ""); // FIXME: proper fileheader struct
+	std.file.write(args[2], "DBC\1");
 	std.file.append(args[2], byteCode);
 	return 0;
 }
