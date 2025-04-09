@@ -6,9 +6,11 @@ name: build with build.d
 
 on:
   push:
-    branches: [ "main" ]
+    paths:
+      - '**.d'
   pull_request:
-    branches: [ "main" ]
+    paths:
+      - '**.d'
 
 permissions:
   contents: read
