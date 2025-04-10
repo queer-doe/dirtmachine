@@ -6,18 +6,6 @@ import std.math;
 
 import bytecode;
 
-void executeUntilHalt(DM* dm)
-{
-	while (dm.halt != true) {
-		auto res = dm.executeOne();
-		if (res != Result.OK) {
-			dm.halt = true;
-			writeln("ERROR: ", res);
-		}
-		// dm.dumpDm();
-	}
-}
-
 void manualStepping(DM* dm)
 {
 	while (dm.halt != true) {

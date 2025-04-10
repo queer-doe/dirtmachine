@@ -503,3 +503,19 @@ Result executeOne(DM* dm)
 	dm.instPointer++;
 	return Result.OK;
 }
+
+Result executeUntilHalt(DM* dm, long limit = -1)
+{
+	while (dm.halt != true && limit != 0) {
+		auto res = dm.executeOne();
+		if (res != Result.OK) {
+			dm.halt = true;
+			return res;
+		}
+		if (limit > 1)
+			limit--;
+	}
+	return Result.OK;
+}
+
+
