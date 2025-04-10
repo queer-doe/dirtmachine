@@ -167,6 +167,8 @@ bool loadByteCode(DM* dm, ubyte[] data)
 
 	for (ulong i = 0; i < data.length;) {
 		if (expectingInstruction) {
+			if (InstType.min > data[i] || data[i] > InstType.max)
+				return false;
 			InstType type = cast(InstType)data[i];
 			if (type.takesArgument)
 				expectingInstruction = false;
