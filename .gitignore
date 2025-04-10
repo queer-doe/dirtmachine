@@ -1,4 +1,5 @@
 *.o
 *.bin
 /dirtasm
+/dirtdisasm
 /dirtvm

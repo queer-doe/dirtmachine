@@ -14,6 +14,6 @@ int main()
     if (!cmd(dmdAndFlags ~ "dirtasm" ~ "bytecode.d")) return 1;
     if (!cmd(dmdAndFlags ~ "dirtdisasm" ~ "bytecode.d")) return 1;
     if (!cmd(dmdAndFlags ~ "dirtvm" ~ "bytecode.d")) return 1;
-    if (!cmd(["rm"] ~ "dirtasm.o" ~ "dirtvm.o")) return 1;
+    if (!cmd(["rm"] ~ "dirtasm.o" ~ "dirtdisasm.o" ~ "dirtvm.o")) return 1;
     return 0;
 }
