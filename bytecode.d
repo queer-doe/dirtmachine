@@ -158,10 +158,15 @@ union ubyteLong
 enum Result
 {
 	OK = 0,
+	INSTRUCTION_STACK_OVERFLOW,
 	STACK_OVERFLOW, STACK_UNDERFLOW,
 	CALLSTACK_OVERFLOW, CALLSTACK_UNDERFLOW,
-	ILLEGAL_INST_POINTER, ILLEGAL_STACK_POINTER,
-	ILLEGAL_INSTRUCTION,
+	INVALID_INST_POINTER, INVALID_STACK_POINTER,
+	INVALID_INSTRUCTION,
+	INVALID_DECIMAL, INVALID_INTEGER,
+	NO_ARGUMENT_PROVIDED, UNKNOWN_LABEL,
+	FILE_READ_ERROR, INVALID_FILE_HEADER,
+
 }
 
 struct DM
@@ -179,27 +184,29 @@ struct DM
 	long callStackCount;
 }
 
-bool appendInstruction(DM* dm, Inst inst)
+Result appendInstruction(DM* dm, Inst inst)
 {
 	if (dm.instructionCount >= dmInstCapacity)
-		return false;
+		return Result.INSTRUCTION_STACK_OVERFLOW;
 
 	dm.instructions[dm.instructionCount++] = inst;
 
-	return true;
+	return Result.OK;
 }
 
-bool appendInstructions(DM* dm, Inst[] insts)
+Result appendInstructions(DM* dm, Inst[] insts)
 {
-	foreach(inst; insts)
-		if (!appendInstruction(dm, inst))
-			return false;
+	foreach(inst; insts) {
+		auto res = appendInstruction(dm, inst);
+		if (res != Result.OK)
+			return res;
+	}
 
-	return true;
+	return Result.OK;
 }
 
 
-bool loadByteCode(DM* dm, ubyte[] data)
+Result loadByteCode(DM* dm, ubyte[] data)
 {
 	Inst[] instructions;
 	bool expectingInstruction = true;
@@ -207,7 +214,7 @@ bool loadByteCode(DM* dm, ubyte[] data)
 	for (ulong i = 0; i < data.length;) {
 		if (expectingInstruction) {
 			if (InstType.min > data[i] || data[i] > InstType.max)
-				return false;
+				return Result.INVALID_INSTRUCTION;
 			InstType type = cast(InstType)data[i];
 			if (type.takesArgument)
 				expectingInstruction = false;
@@ -223,18 +230,18 @@ bool loadByteCode(DM* dm, ubyte[] data)
 	return dm.appendInstructions(instructions);
 }
 
-bool loadFromFile(DM* dm, string filename)
+Result loadFromFile(DM* dm, string filename)
 {
 	ubyte[] data;
 	try
 		data = cast(ubyte[])filename.read();
 	catch (Exception o)
-		return false;
+		return Result.FILE_READ_ERROR;
 
 	if (data[0..4].assumeUTF == "DBC\2")
 		data = data[4..$];
 	else
-		return false;
+		return Result.INVALID_FILE_HEADER;
 
 	return dm.loadByteCode(data);
 }
@@ -275,7 +282,7 @@ void dumpDm(DM* dm)
 Result executeOne(DM* dm)
 {
 	if (dm.instPointer > dm.instructionCount || dm.instPointer < 0)
-		return Result.ILLEGAL_INST_POINTER;
+		return Result.INVALID_INST_POINTER;
 	auto instruction = dm.instructions[dm.instPointer];
 
 	final switch (instruction.type) {
@@ -371,7 +378,7 @@ Result executeOne(DM* dm)
 		if (dm.stackCount >= dmStackCapacity)
 			return Result.STACK_OVERFLOW;
 		if (dm.stackCount < (instruction.operand.asI64 + 1))
-			return Result.ILLEGAL_STACK_POINTER;
+			return Result.INVALID_STACK_POINTER;
 		dm.stack[dm.stackCount++] = dm.stack[dm.stackCount - instruction.operand.asI64 - 2];
 		break;
 
@@ -441,7 +448,7 @@ Result executeOne(DM* dm)
 
 	case InstType.JMPZ_ABS:
 		if (instruction.operand.asI64 > dm.instructionCount || instruction.operand.asI64 < 0)
-			return Result.ILLEGAL_INST_POINTER;
+			return Result.INVALID_INST_POINTER;
 
 		if (dm.stackCount < 1)
 			return Result.STACK_UNDERFLOW;
@@ -455,7 +462,7 @@ Result executeOne(DM* dm)
 
 	case InstType.JMPZ_REL:
 		if ((dm.instPointer + instruction.operand.asI64) > dm.instructionCount || (dm.instPointer + instruction.operand.asI64) < 0)
-			return Result.ILLEGAL_INST_POINTER;
+			return Result.INVALID_INST_POINTER;
 
 		if (dm.stackCount < 1)
 			return Result.STACK_UNDERFLOW;
@@ -469,7 +476,7 @@ Result executeOne(DM* dm)
 
 	case InstType.CALL:
 		if (instruction.operand.asI64 > dm.instructionCount || instruction.operand.asI64 < 0)
-			return Result.ILLEGAL_INST_POINTER;
+			return Result.INVALID_INST_POINTER;
 
 		if (dm.callStackCount >= dmCallStackCapacity)
 			return Result.CALLSTACK_OVERFLOW;

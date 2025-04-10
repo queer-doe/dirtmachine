@@ -7,10 +7,10 @@ import std.path;
 
 import bytecode;
 
-bool tryGetNumArg(string[] arr, Word* output)
+Result tryGetNumArg(string[] arr, Word* output)
 {
 	if (arr.length < 2)
-		return false;
+		return Result.NO_ARGUMENT_PROVIDED;
 
 	string[] parts = arr[1].split(".");
 
@@ -19,29 +19,30 @@ bool tryGetNumArg(string[] arr, Word* output)
 			parts[0] = "0";
 
 		if (parts[0] == "")
-			return false;
+			return Result.INVALID_DECIMAL;
 
 		try
 			output.asF64 = to!double(arr[1]);
 		catch (Exception o)
-			return false;
-		return true;
+			return Result.INVALID_DECIMAL;
+		return Result.OK;
 	}
 
 	if (parts.length == 1) {
 		if (parts[0] == "")
-			return false;
+			return Result.NO_ARGUMENT_PROVIDED;
 
 		try
 			output.asI64 = to!long(arr[1]);
 		catch (Exception o)
-			return false;
-		return true;
+			return Result.INVALID_INTEGER;
+		return Result.OK;
 	}
-	return false;
+
+	return Result.INVALID_DECIMAL;
 }
 
-const string invArgErrFormat = "ERROR: %s:%d:0 No valid argument provided for `%s`";
+const string invArgErrFormat = "ERROR: %s:%d:0 Invalid or no argument provided for `%s`: %s";
 
 int main(string[] args)
 {
@@ -98,12 +99,12 @@ int main(string[] args)
 		string[] inst = line.split(";")[0].split(" ");
 
 		Word arg;
-		bool got = tryGetNumArg(inst, &arg);
+		Result got = tryGetNumArg(inst, &arg);
 
 		switch (inst[0]) {
 		case "dup":
-			if (!got) {
-				writefln(invArgErrFormat, args[1], ln+1, inst[0]);
+			if (got != Result.OK) {
+				writefln(invArgErrFormat, args[1], ln+1, inst[0], got);
 				err = true;
 			}
 
@@ -111,8 +112,8 @@ int main(string[] args)
 			break;
 
 		case "jmpz":
-			if (!got) {
-				writefln(invArgErrFormat, args[1], ln+1, inst[0]);
+			if (got != Result.OK) {
+				writefln(invArgErrFormat, args[1], ln+1, inst[0], got);
 				err = true;
 			}
 
@@ -120,7 +121,7 @@ int main(string[] args)
 			break;
 
 		case "jmpz@":
-			if (!got) {
+			if (got != Result.OK) {
 				needLabels ~= inst[1];
 				arg.asI64 = -1;
 			}
@@ -129,7 +130,7 @@ int main(string[] args)
 			break;
 
 		case "call":
-			if (!got) {
+			if (got != Result.OK) {
 				needLabels ~= inst[1];
 				arg.asI64 = -1;
 			}
@@ -142,8 +143,8 @@ int main(string[] args)
 			break;
 
 		case "push":
-			if (!got) {
-				writefln(invArgErrFormat, args[1], ln+1, inst[0]);
+			if (got != Result.OK) {
+				writefln(invArgErrFormat, args[1], ln+1, inst[0], got);
 				err = true;
 			}
 
