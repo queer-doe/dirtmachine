@@ -159,39 +159,8 @@ bool appendInstructions(DM* dm, Inst[] insts)
 	return true;
 }
 
-bool loadByteCodeV0(DM* dm, long[] byteCode)
-{
-	for (ulong i = 0; i < byteCode.length; i += 2) {
-		if (!dm.appendInstruction(Inst(cast(InstType)byteCode[i], byteCode[i+1]))) {
-			return false;}
-	}
-	return true;
-}
 
-bool loadFromFileV0(DM* dm, string filename)
-{
-	ubyte[] data;
-
-	try
-		data = cast(ubyte[])filename.read();
-	catch (Exception o)
-		return false;
-
-	if (data[0..4].assumeUTF == "DBC\0")
-		data = data[4..$];
-
-	if (data.length % 16 != 0)
-		return false;
-
-	long[] byteCode;
-	for (ulong i = 0; i < data.length; i += 8) {
-		ubyte[8] tmp = data[i..i+8];
-		byteCode ~= (cast(ubyteLong)tmp).l;
-	}
-	return dm.loadByteCodeV0(byteCode);
-}
-
-bool loadByteCodeV1(DM* dm, ubyte[] data)
+bool loadByteCode(DM* dm, ubyte[] data)
 {
 	Inst[] instructions;
 	bool expectingInstruction = true;
@@ -213,7 +182,7 @@ bool loadByteCodeV1(DM* dm, ubyte[] data)
 	return dm.appendInstructions(instructions);
 }
 
-bool loadFromFileV1(DM* dm, string filename)
+bool loadFromFile(DM* dm, string filename)
 {
 	ubyte[] data;
 	try
@@ -226,29 +195,7 @@ bool loadFromFileV1(DM* dm, string filename)
 	else
 		return false;
 
-	return dm.loadByteCodeV1(data);
-}
-
-bool loadFromFile(DM* dm, string filename)
-{
-	ubyte[] data;
-	try
-		data = cast(ubyte[])filename.read(4);
-	catch (Exception o)
-		return false;
-
-	if (data.length < 4)
-		return false;
-
-	switch (data[0..4].assumeUTF) {
-	case "DBC\1":
-		return dm.loadFromFileV1(filename);
-	case "DBC\0":
-		return dm.loadFromFileV0(filename);
-	default:
-		return dm.loadFromFileV0(filename);
-	}
-	return false;
+	return dm.loadByteCode(data);
 }
 
 void dumpDm(DM* dm)
