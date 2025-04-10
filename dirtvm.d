@@ -41,8 +41,9 @@ int main(string[] args)
 	if (args.length > 1)
 		fn = args[1];
 
-	if (!loadFromFile(&dm, fn)) {
-		writefln("ERROR: Could not load file `%s`", fn);
+	Result res = loadFromFile(&dm, fn);
+	if (res != Result.OK) {
+		writefln("ERROR: Could not load file `%s`: %s", fn, res);
 		return 1;
 	}
 	dumpDm(&dm);
