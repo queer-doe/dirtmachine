@@ -1,0 +1,14 @@
+; DIRT-TEST: 1
+
+    push 23
+    push 3
+    muli
+
+    push 34
+    push 35
+    addi
+
+    divi
+
+    push 1
+    eq
