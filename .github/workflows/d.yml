@@ -26,3 +26,7 @@ jobs:
 
     - name: 'Build'
       run: rdmd build.d
+
+    - name: 'Run Tests'
+      run: rdmd dirttest.d 'rdmd dirtasm' tests
+
