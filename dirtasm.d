@@ -7,17 +7,38 @@ import std.path;
 
 import bytecode;
 
-bool tryGetNumArg(string[] arr, long* output)
+bool tryGetNumArg(string[] arr, Word* output)
 {
 	if (arr.length < 2)
 		return false;
 
-	try
-		*output = to!long(arr[1]);
-	catch (Exception o)
-		return false;
+	string[] parts = arr[1].split(".");
 
-	return true;
+	if (parts.length == 2) {
+		if (parts[0] == "")
+			parts[0] = "0";
+
+		if (parts[0] == "")
+			return false;
+
+		try
+			output.asF64 = to!double(arr[1]);
+		catch (Exception o)
+			return false;
+		return true;
+	}
+
+	if (parts.length == 1) {
+		if (parts[0] == "")
+			return false;
+
+		try
+			output.asI64 = to!long(arr[1]);
+		catch (Exception o)
+			return false;
+		return true;
+	}
+	return false;
 }
 
 const string invArgErrFormat = "ERROR: %s:%d:0 No valid argument provided for `%s`";
@@ -76,7 +97,7 @@ int main(string[] args)
 
 		string[] inst = line.split(";")[0].split(" ");
 
-		long arg;
+		Word arg;
 		bool got = tryGetNumArg(inst, &arg);
 
 		switch (inst[0]) {
@@ -101,7 +122,7 @@ int main(string[] args)
 		case "jmpz@":
 			if (!got) {
 				needLabels ~= inst[1];
-				arg = -1;
+				arg.asI64 = -1;
 			}
 
 			instructions ~= Inst(InstType.JMPZ_ABS, arg, args[1], ln+1);
@@ -110,7 +131,7 @@ int main(string[] args)
 		case "call":
 			if (!got) {
 				needLabels ~= inst[1];
-				arg = -1;
+				arg.asI64 = -1;
 			}
 
 			instructions ~= Inst(InstType.CALL, arg, args[1], ln+1);
@@ -141,20 +162,36 @@ int main(string[] args)
 			instructions ~= Inst(InstType.SWAP, arg);
 			break;
 
-		case "add":
-			instructions ~= Inst(InstType.ADD, arg);
+		case "addi":
+			instructions ~= Inst(InstType.ADDI, arg);
 			break;
 
-		case "sub":
-			instructions ~= Inst(InstType.SUB, arg);
+		case "subi":
+			instructions ~= Inst(InstType.SUBI, arg);
 			break;
 
-		case "mul":
-			instructions ~= Inst(InstType.MUL, arg);
+		case "muli":
+			instructions ~= Inst(InstType.MULI, arg);
 			break;
 
-		case "div":
-			instructions ~= Inst(InstType.DIV, arg);
+		case "divi":
+			instructions ~= Inst(InstType.DIVI, arg);
+			break;
+
+		case "addf":
+			instructions ~= Inst(InstType.ADDF, arg);
+			break;
+
+		case "subf":
+			instructions ~= Inst(InstType.SUBF, arg);
+			break;
+
+		case "mulf":
+			instructions ~= Inst(InstType.MULF, arg);
+			break;
+
+		case "divf":
+			instructions ~= Inst(InstType.DIVF, arg);
 			break;
 
 		case "eq":
@@ -165,12 +202,28 @@ int main(string[] args)
 			instructions ~= Inst(InstType.NEQ, arg);
 			break;
 
-		case "gt":
-			instructions ~= Inst(InstType.GT, arg);
+		case "gti":
+			instructions ~= Inst(InstType.GTI, arg);
 			break;
 
-		case "lt":
-			instructions ~= Inst(InstType.LT, arg);
+		case "lti":
+			instructions ~= Inst(InstType.LTI, arg);
+			break;
+
+		case "gtu":
+			instructions ~= Inst(InstType.GTU, arg);
+			break;
+
+		case "ltu":
+			instructions ~= Inst(InstType.LTU, arg);
+			break;
+
+		case "gtf":
+			instructions ~= Inst(InstType.GTF, arg);
+			break;
+
+		case "ltf":
+			instructions ~= Inst(InstType.LTF, arg);
 			break;
 
 		default:
@@ -182,9 +235,9 @@ int main(string[] args)
 
 	ulong jmpCount = 0;
 	foreach (inst; instructions) {
-		if ((inst.type == InstType.JMPZ_ABS || inst.type == InstType.CALL) && inst.operand == -1) {
+		if ((inst.type == InstType.JMPZ_ABS || inst.type == InstType.CALL) && inst.operand.asI64 == -1) {
 			if (needLabels[jmpCount] in labels)
-				inst.operand = labels[needLabels[jmpCount]];
+				inst.operand.asI64 = labels[needLabels[jmpCount]];
 			else {
 				writefln("ERROR: %s:%d:0 Unknown label: `%s`", inst.fn, inst.ln, needLabels[jmpCount]);
 				err = true;
@@ -199,7 +252,7 @@ int main(string[] args)
 	}
 
 
-	std.file.write(args[2], "DBC\1");
+	std.file.write(args[2], "DBC\2");
 	std.file.append(args[2], byteCode);
 	return 0;
 }
