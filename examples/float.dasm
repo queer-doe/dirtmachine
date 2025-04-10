@@ -1,0 +1,11 @@
+    push 3.5
+    push 3.4
+    addf
+
+    push 2.3
+    push 3.0
+    mulf
+
+    divf
+    push 1.0
+    eq

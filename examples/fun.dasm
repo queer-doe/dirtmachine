@@ -1,9 +1,9 @@
-push 1
-call add1
-halt
+    push 1
+    call add1
+    halt
 
 
 add1:
-push 1
-add
-ret
+    push 1
+    add
+    ret
