@@ -38,7 +38,7 @@ int main(string[] args)
 	ulong tests = 0;
 	ulong testsPassed = 0;
 
-	if (!testDir.isDir)
+	if (!testDir.exists || !testDir.isDir)
 		return errorout("Not a directory: `%s`".format(testDir), progName, 1);
 
 	foreach (file; testDir.dirEntries("*.dasm", SpanMode.depth)) {
