@@ -1,5 +1,6 @@
 # UNDER CONSTRUCTION. DO NOT USE.
 # DirtMachine
+[![build and test](https://github.com/queer-doe/dirtmachine/actions/workflows/d.yml/badge.svg)](https://github.com/queer-doe/dirtmachine/actions/workflows/d.yml)
 
 DirtMachine is a simplistic application VM.
 
