@@ -46,6 +46,10 @@ const string invArgErrFormat = "ERROR: %s:%d:0 Invalid or no argument provided f
 
 int main(string[] args)
 {
+	if (args.length == 2 && args[1].extension.empty) {
+		args[1] = args[1].setExtension(".dasm");
+		args ~= args[1].setExtension(".bin");
+	}
 	if (args.length < 3) {
 		writeln("ERROR: Not enough arguments");
 		writeln("USAGE:");

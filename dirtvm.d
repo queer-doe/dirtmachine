@@ -1,8 +1,10 @@
-import std.stdio;
-import std.format;
-import std.file;
+import std.array;
 import std.conv;
+import std.file;
+import std.format;
 import std.math;
+import std.path;
+import std.stdio;
 
 import bytecode;
 
@@ -27,7 +29,7 @@ int main(string[] args)
 	string fn = "out.bin";
 
 	if (args.length > 1)
-		fn = args[1];
+		fn = args[1].withDefaultExtension(".bin").array;
 
 	Result res = loadFromFile(&dm, fn);
 	if (res != Result.OK) {
