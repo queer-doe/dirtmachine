@@ -2,16 +2,18 @@
 # They are provided by a third-party and are governed by
 # separate terms of service, privacy policy, and support
 # documentation.
-name: build with build.d
+name: build and test
 
 on:
   push:
     branches: [ "main" ]
     paths:
       - '**.d'
+      - '**.dasm'
   pull_request:
     paths:
       - '**.d'
+      - '**.dasm'
 
 permissions:
   contents: read
