@@ -453,8 +453,10 @@ Result executeOne(DM* dm)
 		if (dm.stackCount < 1)
 			return Result.STACK_UNDERFLOW;
 
-		if (dm.stack[dm.stackCount - 1].asI64 != 0)
+		if (dm.stack[dm.stackCount - 1].asI64 != 0) {
+			dm.stack[--dm.stackCount].asI64 = 0;
 			break;
+		}
 
 		dm.stack[--dm.stackCount].asI64 = 0;
 		dm.instPointer = instruction.operand.asI64;
@@ -467,8 +469,10 @@ Result executeOne(DM* dm)
 		if (dm.stackCount < 1)
 			return Result.STACK_UNDERFLOW;
 
-		if (dm.stack[dm.stackCount - 1].asI64 != 0)
+		if (dm.stack[dm.stackCount - 1].asI64 != 0) {
+			dm.stack[--dm.stackCount].asI64 = 0;
 			break;
+		}
 
 		dm.stack[--dm.stackCount].asI64 = 0;
 		dm.instPointer += instruction.operand.asI64;

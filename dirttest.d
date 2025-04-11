@@ -1,3 +1,4 @@
+import std.algorithm;
 import std.array;
 import std.conv;
 import std.file;
@@ -6,14 +7,9 @@ import std.path;
 import std.process;
 import std.stdio;
 import std.string;
+import std.typecons;
 
 import bytecode;
-
-bool cmd(string command)
-{
-    writeln("CMD: ", command);
-    return executeShell(command).status == 0;
-}
 
 int errorout(string error, string progname, int ret)
 {
@@ -24,6 +20,15 @@ int errorout(string error, string progname, int ret)
 	}
 	return ret;
 }
+
+long[] asI64a(Word[] words)
+{
+	long[] o;
+	foreach (word; words)
+		o ~= word.asI64;
+	return o;
+}
+
 
 int main(string[] args)
 {
@@ -51,18 +56,31 @@ int main(string[] args)
 		string dirtTestExpected = "";
 		foreach (line; lines)
 			if (line.strip().startsWith("; DIRT-TEST:")) {
-				dirtTestExpected = line.strip.split(":")[1].strip;
+				auto tmp = line.strip.split(":")[1].split(";");
+				if (tmp.length >= 1)
+					dirtTestExpected = tmp[0].strip;
 				break;
 			}
 
-		long expectedValue;
-		try
-			expectedValue = to!long(dirtTestExpected);
-		catch (Exception o)
-			return errorout("Invalid expected value (must be an integer): `%s`".format(dirtTestExpected), progName, 2);
+		if (dirtTestExpected == "")
+			return errorout("No `; DIRT-TEST: ` provided in file `%s`".format(file), progName, 2);
 
-		if (!cmd(compiler ~ " " ~ file ~ " " ~ file.setExtension(".bin")))
-			return errorout("Could not compile `%s`".format(file), progName, 2);
+		long[] expectedValues;
+		foreach (ev; dirtTestExpected.split(" ")) {
+			try
+				expectedValues ~= to!long(ev);
+			catch (Exception o) {
+				if (dirtTestExpected == "[empty]")
+					expectedValues = [];
+				else
+					return errorout("Invalid expected value (must be an integer): `%s`".format(dirtTestExpected), progName, 2);
+			}
+		}
+
+		writefln("Compiling `%s`...", file);
+		auto cmdRes = executeShell(compiler ~ " " ~ file ~ " " ~ file.setExtension(".bin"));
+		if (cmdRes.status != 0)
+			return errorout("Could not compile `%s`:\n%s".format(file, cmdRes.output), progName, 2);
 
 		DM dm;
 		auto res = (&dm).loadFromFile(file.setExtension(".bin"));
@@ -80,15 +98,16 @@ int main(string[] args)
 			err = true;
 		}
 
-		if (dm.stackCount < 1) {
-			errorout("Not enough values on the stack", progName, 3);
+		if (dm.stackCount != expectedValues.length) {
+			errorout("Test failed: expected `%s` but got `%s`".format(expectedValues, dm.stack[0..dm.stackCount].reverse.asI64a), progName, 3);
 			err = true;
-		}
-
-		auto stackTop = dm.stack[dm.stackCount - 1];
-		if (stackTop.asI64 != expectedValue) {
-			errorout("Test failed: expected `%s` but got `%s`".format(expectedValue, stackTop), progName, 3);
-			err = true;
+		} else {
+			foreach (idx, word; dm.stack[0..dm.stackCount].reverse) {
+				if (word.asI64 != expectedValues[idx]) {
+					errorout("Test failed: expected `%s` but got `%s`".format(expectedValues, dm.stack[0..dm.stackCount].reverse.asI64a), progName, 3);
+					err = true;
+				}
+			}
 		}
 
 		if (!err)
@@ -96,7 +115,7 @@ int main(string[] args)
 		tests++;
 	}
 
-	writefln("Test passed: %s/%s", testsPassed, tests);
+	writefln("Tests passed: %s/%s", testsPassed, tests);
 
 	if (testsPassed < tests)
 		return 1;
