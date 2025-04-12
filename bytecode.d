@@ -40,7 +40,6 @@ bool takesArgument(InstType type)
 	final switch (type) {
 	case InstType.HALT:
 	case InstType.POP:
-	case InstType.SWAP:
 	case InstType.ADDI:
 	case InstType.SUBI:
 	case InstType.MULI:
@@ -61,6 +60,7 @@ bool takesArgument(InstType type)
 		return false;
 
 	case InstType.PUSH:
+	case InstType.SWAP:
 	case InstType.DUP:
 	case InstType.JMPZ_REL:
 	case InstType.JMPZ_ABS:
@@ -89,8 +89,6 @@ struct Inst
 			sink("halt"); break;
 		case InstType.POP:
 			sink("pop"); break;
-		case InstType.SWAP:
-			sink("swap"); break;
 		case InstType.ADDI:
 			sink("addi"); break;
 		case InstType.SUBI:
@@ -127,6 +125,8 @@ struct Inst
 			sink("ret " ~ this.operand.asI64.text ~ "  ; " ~ "%.8f".format(this.operand.asF64)); break;
 		case InstType.PUSH:
 			sink("push " ~ this.operand.asI64.text ~ "  ; " ~ "%.8f".format(this.operand.asF64)); break;
+		case InstType.SWAP:
+			sink("swap " ~ this.operand.asI64.text ~ "  ; " ~ "%.8f".format(this.operand.asF64)); break;
 		case InstType.DUP:
 			sink("dup " ~ this.operand.asI64.text ~ "  ; " ~ "%.8f".format(this.operand.asF64)); break;
 		case InstType.JMPZ_REL:
@@ -302,12 +302,12 @@ Result executeOne(DM* dm)
 		break;
 
 	case InstType.SWAP:
-		if (dm.stackCount < 2)
+		if (dm.stackCount < (instruction.operand.asI64 + 1))
 			return Result.STACK_UNDERFLOW;
 
 		auto temp = dm.stack[dm.stackCount - 1];
-		dm.stack[dm.stackCount - 1] = dm.stack[dm.stackCount - 2];
-		dm.stack[dm.stackCount - 2] = temp;
+		dm.stack[dm.stackCount - 1] = dm.stack[dm.stackCount - (1 + instruction.operand.asI64)];
+		dm.stack[dm.stackCount - (1 + instruction.operand.asI64)] = temp;
 		break;
 
 	case InstType.ADDI:

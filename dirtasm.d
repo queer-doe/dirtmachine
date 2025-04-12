@@ -164,6 +164,10 @@ int main(string[] args)
 			break;
 
 		case "swap":
+			if (got != Result.OK) {
+				writefln("WARNING: %s:%d:0 Invalid or no argument provided for `swap`. assuming 1.", args[1], ln+1);
+			}
+
 			instructions ~= Inst(InstType.SWAP, arg);
 			break;
 
