@@ -12,3 +12,5 @@
 
     push 1
     eq
+
+    halt

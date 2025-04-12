@@ -8,3 +8,5 @@
     push 1.0
     push 3.1415965
     push -1
+
+    halt

@@ -32,7 +32,7 @@ long[] asI64a(Word[] words)
 
 int main(string[] args)
 {
-	if (args.length < 2) {
+	if (args.length < 3) {
 		return errorout("Not enough arguments", args[0], 1);
 	}
 
@@ -96,16 +96,16 @@ int main(string[] args)
 		if (res != Result.OK) {
 			errorout("VM crashed: `%s`".format(res), progName, 3);
 			err = true;
-		}
-
-		if (dm.stackCount != expectedValues.length) {
-			errorout("Test failed: expected `%s` but got `%s`".format(expectedValues, dm.stack[0..dm.stackCount].reverse.asI64a), progName, 3);
-			err = true;
 		} else {
-			foreach (idx, word; dm.stack[0..dm.stackCount].reverse) {
-				if (word.asI64 != expectedValues[idx]) {
-					errorout("Test failed: expected `%s` but got `%s`".format(expectedValues, dm.stack[0..dm.stackCount].reverse.asI64a), progName, 3);
-					err = true;
+			if (dm.stack.length != expectedValues.length) {
+				errorout("Test `%s` failed: expected `%s` but got `%s`".format(file, expectedValues, dm.stack[0..$].reverse.asI64a), progName, 3);
+				err = true;
+			} else {
+				foreach (idx, word; dm.stack[0..$].reverse) {
+					if (word.asI64 != expectedValues[idx]) {
+						errorout("Test `%s` failed: expected `%s` but got `%s`".format(file, expectedValues, dm.stack[0..$].reverse.asI64a), progName, 3);
+						err = true;
+					}
 				}
 			}
 		}

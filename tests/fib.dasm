@@ -11,3 +11,5 @@ loop:
     push 1000
     lti
     jmpz@ loop
+
+    halt
