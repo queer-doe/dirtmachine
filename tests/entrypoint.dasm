@@ -1,0 +1,10 @@
+; DIRT-TEST: 4 3 2
+
+    push 1
+
+#entrypoint
+    push 2
+    push 3
+    push 4
+
+    halt

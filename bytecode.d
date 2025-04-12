@@ -201,7 +201,9 @@ Result loadByteCode(DM* dm, ubyte[] data)
 	Inst[] instructions;
 	bool expectingInstruction = true;
 
-	for (ulong i = 0; i < data.length;) {
+	long entrypoint = (cast(ubytesLong)data[0..8]).asLong;
+
+	for (ulong i = 8; i < data.length;) {
 		if (expectingInstruction) {
 			if (InstType.min > data[i] || data[i] > InstType.max)
 				return Result.INVALID_INSTRUCTION;
@@ -217,6 +219,9 @@ Result loadByteCode(DM* dm, ubyte[] data)
 			i += 8;
 		}
 	}
+
+	dm.instPointer = entrypoint;
+
 	return dm.appendInstructions(instructions);
 }
 
@@ -228,7 +233,7 @@ Result loadFromFile(DM* dm, string filename)
 	catch (Exception o)
 		return Result.FILE_READ_ERROR;
 
-	if (data[0..4].assumeUTF == "DBC\2")
+	if (data[0..4].assumeUTF == "DBC\3")
 		data = data[4..$];
 	else
 		return Result.INVALID_FILE_HEADER;

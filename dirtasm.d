@@ -65,6 +65,7 @@ int main(string[] args)
 		return 1;
 	}
 
+	ubytesLong entrypoint = { asLong: -1 };
 	long[string] labels;
 
 	ubyte[] byteCode;
@@ -92,6 +93,14 @@ int main(string[] args)
 			}
 			lines[ln] = "";
 			lines.insertInPlace(ln, newLines);
+			continue;
+		} else if (line.startsWith("#entrypoint")) {
+			if (entrypoint.asLong != -1) {
+				writefln("ERROR: %s:%d:0 Entrypoint already defined", args[1], ln+1);
+				err = true;
+				continue;
+			}
+			entrypoint.asLong = instCount;
 			continue;
 		}
 
@@ -260,8 +269,11 @@ int main(string[] args)
 		return 2;
 	}
 
+	if (entrypoint.asLong < 0)
+		entrypoint.asLong = 0;
 
-	std.file.write(args[2], "DBC\2");
+	std.file.write(args[2], "DBC\3");
+	std.file.append(args[2], entrypoint.asUbytes);
 	std.file.append(args[2], byteCode);
 	return 0;
 }
