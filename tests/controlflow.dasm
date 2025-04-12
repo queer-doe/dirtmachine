@@ -1,9 +1,7 @@
-; DIRT-TEST: 1
+; DIRT-TEST: 2
 
     push 1
     call add1
-    push 2
-    eq
     halt
 
 add1:

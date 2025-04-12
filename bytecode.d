@@ -1,13 +1,10 @@
-import std.stdio;
+import std.algorithm;
+import std.conv;
 import std.file;
 import std.format;
 import std.math;
-import std.conv;
+import std.stdio;
 import std.string;
-
-const dmInstCapacity = 1024;
-const dmStackCapacity = 1024;
-const dmCallStackCapacity = 256;
 
 union Word {
 	ubyte asU8;
@@ -122,7 +119,7 @@ struct Inst
 		case InstType.LTF:
 			sink("ltf"); break;
 		case InstType.RET:
-			sink("ret " ~ this.operand.asI64.text ~ "  ; " ~ "%.8f".format(this.operand.asF64)); break;
+			sink("ret"); break;
 		case InstType.PUSH:
 			sink("push " ~ this.operand.asI64.text ~ "  ; " ~ "%.8f".format(this.operand.asF64)); break;
 		case InstType.SWAP:
@@ -158,6 +155,7 @@ union ubyteLong
 enum Result
 {
 	OK = 0,
+	INSTRUCTION_LIMIT_REACHED,
 	INSTRUCTION_STACK_OVERFLOW,
 	STACK_OVERFLOW, STACK_UNDERFLOW,
 	CALLSTACK_OVERFLOW, CALLSTACK_UNDERFLOW,
@@ -166,31 +164,23 @@ enum Result
 	INVALID_DECIMAL, INVALID_INTEGER,
 	NO_ARGUMENT_PROVIDED, UNKNOWN_LABEL,
 	FILE_READ_ERROR, INVALID_FILE_HEADER,
-
 }
 
 struct DM
 {
 	bool halt;
 
-    Inst[dmInstCapacity] instructions;
-	long instructionCount;
+    Inst[] instructions;
     long instPointer;
 
-    Word[dmStackCapacity] stack;
-	long stackCount;
+    Word[] stack;
 
-    long[dmCallStackCapacity] callStack;
-	long callStackCount;
+    long[] callStack;
 }
 
 Result appendInstruction(DM* dm, Inst inst)
 {
-	if (dm.instructionCount >= dmInstCapacity)
-		return Result.INSTRUCTION_STACK_OVERFLOW;
-
-	dm.instructions[dm.instructionCount++] = inst;
-
+	dm.instructions ~= inst;
 	return Result.OK;
 }
 
@@ -250,14 +240,14 @@ void dumpDm(DM* dm)
 {
 	int pad;
 	try {
-		pad = to!int(log10(cast(double)dm.instructionCount)+1);
+		pad = to!int(log10(cast(double)dm.instructions.length)+1);
 	} catch (Exception) {
 		pad = 0;
 	}
 	writeln("\n");
-	writefln("Instructions: [%s]", dm.instructionCount);
-	if (dm.instructionCount > 0)
-		foreach (idx; 0..dm.instructionCount) {
+	writefln("Instructions: [%s]", dm.instructions.length);
+	if (dm.instructions.length > 0)
+		foreach (idx; 0..dm.instructions.length) {
 			if (idx == dm.instPointer)
 				writefln("%*d > %s", pad, idx, dm.instructions[idx]);
 			else
@@ -266,14 +256,14 @@ void dumpDm(DM* dm)
 	else
 		writeln("  [empty]");
 
-	writefln("Stack: [%s]", dm.stackCount);
-	foreach (idx; 0..dm.stackCount) {
+	writefln("Stack: [%s]", dm.stack.length);
+	foreach (idx; 0..dm.stack.length) {
 		writeln("  ", dm.stack[idx]);
 	}
 	writeln("  [top]");
 
-	writefln("Callstack: [%s]", dm.callStackCount);
-	foreach (idx; 0..dm.callStackCount) {
+	writefln("Callstack: [%s]", dm.callStack.length);
+	foreach (idx; 0..dm.callStack.length) {
 		writeln("  ", dm.callStack[idx]);
 	}
 	writeln("  [top]");
@@ -281,221 +271,214 @@ void dumpDm(DM* dm)
 
 Result executeOne(DM* dm)
 {
-	if (dm.instPointer > dm.instructionCount || dm.instPointer < 0)
+	if (dm.instPointer > dm.instructions.length-1 || dm.instPointer < 0)
 		return Result.INVALID_INST_POINTER;
+
 	auto instruction = dm.instructions[dm.instPointer];
 
 	final switch (instruction.type) {
 	case InstType.PUSH:
-		if (dm.stackCount >= dmInstCapacity)
-			return Result.STACK_OVERFLOW;
-
-		dm.stack[dm.stackCount] = instruction.operand;
-		dm.stackCount++;
+		dm.stack ~= instruction.operand;
 		break;
 
 	case InstType.POP:
-		if (dm.stackCount < 1)
+		if (dm.stack.length < 1)
 			return Result.STACK_UNDERFLOW;
 
-		dm.stack[dm.stackCount--].asI64 = 0;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.SWAP:
-		if (dm.stackCount < (instruction.operand.asI64 + 1))
+		if (dm.stack.length < (instruction.operand.asI64 + 1))
 			return Result.STACK_UNDERFLOW;
 
-		auto temp = dm.stack[dm.stackCount - 1];
-		dm.stack[dm.stackCount - 1] = dm.stack[dm.stackCount - (1 + instruction.operand.asI64)];
-		dm.stack[dm.stackCount - (1 + instruction.operand.asI64)] = temp;
+		auto temp = dm.stack[dm.stack.length - 1];
+		dm.stack[dm.stack.length - 1] = dm.stack[dm.stack.length - (1 + instruction.operand.asI64)];
+		dm.stack[dm.stack.length - (1 + instruction.operand.asI64)] = temp;
 		break;
 
 	case InstType.ADDI:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
 
-		dm.stack[dm.stackCount - 2].asI64 += dm.stack[dm.stackCount - 1].asI64;
-		dm.stack[--dm.stackCount].asI64 = 0;
+		dm.stack[dm.stack.length - 2].asI64 += dm.stack[dm.stack.length - 1].asI64;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.SUBI:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
 
-		dm.stack[dm.stackCount - 2].asI64 -= dm.stack[dm.stackCount - 1].asI64;
-		dm.stack[--dm.stackCount].asI64 = 0;
+		dm.stack[dm.stack.length - 2].asI64 -= dm.stack[dm.stack.length - 1].asI64;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.MULI:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
 
-		dm.stack[dm.stackCount - 2].asI64 *= dm.stack[dm.stackCount - 1].asI64;
-		dm.stack[--dm.stackCount].asI64 = 0;
+		dm.stack[dm.stack.length - 2].asI64 *= dm.stack[dm.stack.length - 1].asI64;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.DIVI:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
 
-		dm.stack[dm.stackCount - 2].asI64 /= dm.stack[dm.stackCount - 1].asI64;
-		dm.stack[--dm.stackCount].asI64 = 0;
+		dm.stack[dm.stack.length - 2].asI64 /= dm.stack[dm.stack.length - 1].asI64;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.ADDF:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
 
-		dm.stack[dm.stackCount - 2].asF64 += dm.stack[dm.stackCount - 1].asF64;
-		dm.stack[--dm.stackCount].asF64 = 0;
+		dm.stack[dm.stack.length - 2].asF64 += dm.stack[dm.stack.length - 1].asF64;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.SUBF:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
 
-		dm.stack[dm.stackCount - 2].asF64 -= dm.stack[dm.stackCount - 1].asF64;
-		dm.stack[--dm.stackCount].asF64 = 0;
+		dm.stack[dm.stack.length - 2].asF64 -= dm.stack[dm.stack.length - 1].asF64;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.MULF:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
 
-		dm.stack[dm.stackCount - 2].asF64 *= dm.stack[dm.stackCount - 1].asF64;
-		dm.stack[--dm.stackCount].asF64 = 0;
+		dm.stack[dm.stack.length - 2].asF64 *= dm.stack[dm.stack.length - 1].asF64;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.DIVF:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
 
-		dm.stack[dm.stackCount - 2].asF64 /= dm.stack[dm.stackCount - 1].asF64;
-		dm.stack[--dm.stackCount].asF64 = 0;
+		dm.stack[dm.stack.length - 2].asF64 /= dm.stack[dm.stack.length - 1].asF64;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.DUP:
-		if (dm.stackCount >= dmStackCapacity)
-			return Result.STACK_OVERFLOW;
-		if (dm.stackCount < (instruction.operand.asI64 + 1))
+		if (dm.stack.length < (instruction.operand.asI64 + 1))
 			return Result.INVALID_STACK_POINTER;
-		dm.stack[dm.stackCount++] = dm.stack[dm.stackCount - instruction.operand.asI64 - 2];
+
+		dm.stack ~= dm.stack[$ - instruction.operand.asI64 - 1];
 		break;
 
 	case InstType.EQ:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
-		long res = dm.stack[dm.stackCount - 1] == dm.stack[dm.stackCount - 2];
-		dm.stack[dm.stackCount - 2].asI64 = res;
-		dm.stackCount--;
+		long res = dm.stack[dm.stack.length - 1] == dm.stack[dm.stack.length - 2];
+		dm.stack[dm.stack.length - 2].asI64 = res;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.NEQ:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
-		long res = dm.stack[dm.stackCount - 1] != dm.stack[dm.stackCount - 2];
-		dm.stack[dm.stackCount - 2].asI64 = res;
-		dm.stackCount--;
+		long res = dm.stack[dm.stack.length - 1] != dm.stack[dm.stack.length - 2];
+		dm.stack[dm.stack.length - 2].asI64 = res;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.GTI:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
-		long res = dm.stack[dm.stackCount - 1].asI64 > dm.stack[dm.stackCount - 2].asI64;
-		dm.stack[dm.stackCount - 2].asI64 = res;
-		dm.stackCount--;
+		long res = dm.stack[dm.stack.length - 1].asI64 > dm.stack[dm.stack.length - 2].asI64;
+		dm.stack[dm.stack.length - 2].asI64 = res;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.LTI:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
-		long res = dm.stack[dm.stackCount - 1].asI64 < dm.stack[dm.stackCount - 2].asI64;
-		dm.stack[dm.stackCount - 2].asI64 = res;
-		dm.stackCount--;
+		long res = dm.stack[dm.stack.length - 1].asI64 < dm.stack[dm.stack.length - 2].asI64;
+		dm.stack[dm.stack.length - 2].asI64 = res;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.GTU:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
-		long res = dm.stack[dm.stackCount - 1].asU64 > dm.stack[dm.stackCount - 2].asU64;
-		dm.stack[dm.stackCount - 2].asI64 = res;
-		dm.stackCount--;
+		long res = dm.stack[dm.stack.length - 1].asU64 > dm.stack[dm.stack.length - 2].asU64;
+		dm.stack[dm.stack.length - 2].asI64 = res;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.LTU:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
-		long res = dm.stack[dm.stackCount - 1].asU64 < dm.stack[dm.stackCount - 2].asU64;
-		dm.stack[dm.stackCount - 2].asI64 = res;
-		dm.stackCount--;
+		long res = dm.stack[dm.stack.length - 1].asU64 < dm.stack[dm.stack.length - 2].asU64;
+		dm.stack[dm.stack.length - 2].asI64 = res;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.GTF:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
-		long res = dm.stack[dm.stackCount - 1].asF64 > dm.stack[dm.stackCount - 2].asF64;
-		dm.stack[dm.stackCount - 2].asI64 = res;
-		dm.stackCount--;
+		long res = dm.stack[dm.stack.length - 1].asF64 > dm.stack[dm.stack.length - 2].asF64;
+		dm.stack[dm.stack.length - 2].asI64 = res;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.LTF:
-		if (dm.stackCount < 2)
+		if (dm.stack.length < 2)
 			return Result.STACK_UNDERFLOW;
-		long res = dm.stack[dm.stackCount - 1].asF64 < dm.stack[dm.stackCount - 2].asF64;
-		dm.stack[dm.stackCount - 2].asI64 = res;
-		dm.stackCount--;
+		long res = dm.stack[dm.stack.length - 1].asF64 < dm.stack[dm.stack.length - 2].asF64;
+		dm.stack[dm.stack.length - 2].asI64 = res;
+		dm.stack = dm.stack[0..$-1];
 		break;
 
 	case InstType.JMPZ_ABS:
-		if (instruction.operand.asI64 > dm.instructionCount || instruction.operand.asI64 < 0)
+		if (instruction.operand.asI64 > dm.instructions.length || instruction.operand.asI64 < 0)
 			return Result.INVALID_INST_POINTER;
 
-		if (dm.stackCount < 1)
+		if (dm.stack.length < 1)
 			return Result.STACK_UNDERFLOW;
 
-		if (dm.stack[dm.stackCount - 1].asI64 != 0) {
-			dm.stack[--dm.stackCount].asI64 = 0;
+		if (dm.stack[dm.stack.length - 1].asI64 != 0) {
+			dm.stack = dm.stack[0..$-1];
 			break;
 		}
 
-		dm.stack[--dm.stackCount].asI64 = 0;
+		dm.stack = dm.stack[0..$-1];
 		dm.instPointer = instruction.operand.asI64;
 		return Result.OK;
 
 	case InstType.JMPZ_REL:
-		if ((dm.instPointer + instruction.operand.asI64) > dm.instructionCount || (dm.instPointer + instruction.operand.asI64) < 0)
+		if ((dm.instPointer + instruction.operand.asI64) > dm.instructions.length || (dm.instPointer + instruction.operand.asI64) < 0)
 			return Result.INVALID_INST_POINTER;
 
-		if (dm.stackCount < 1)
+		if (dm.stack.length < 1)
 			return Result.STACK_UNDERFLOW;
 
-		if (dm.stack[dm.stackCount - 1].asI64 != 0) {
-			dm.stack[--dm.stackCount].asI64 = 0;
+		if (dm.stack[dm.stack.length - 1].asI64 != 0) {
+			dm.stack = dm.stack[0..$-1];
 			break;
 		}
 
-		dm.stack[--dm.stackCount].asI64 = 0;
+		dm.stack = dm.stack[0..$-1];
 		dm.instPointer += instruction.operand.asI64;
 		return Result.OK;
 
 	case InstType.CALL:
-		if (instruction.operand.asI64 > dm.instructionCount || instruction.operand.asI64 < 0)
+		if (instruction.operand.asI64 > dm.instructions.length || instruction.operand.asI64 < 0)
 			return Result.INVALID_INST_POINTER;
 
-		if (dm.callStackCount >= dmCallStackCapacity)
-			return Result.CALLSTACK_OVERFLOW;
-
-		dm.callStack[dm.callStackCount++] = dm.instPointer;
+		dm.callStack ~= dm.instPointer;
 		dm.instPointer = instruction.operand.asI64;
 
 		return Result.OK;
 
 	case InstType.RET:
-		if (dm.callStackCount < 1)
+		if (dm.callStack.length < 1)
 			return Result.CALLSTACK_UNDERFLOW;
 
-		dm.instPointer = dm.callStack[--dm.callStackCount];
-		dm.callStack[dm.callStackCount] = 0;
+		dm.instPointer = dm.callStack[$-1];
+		dm.callStack = dm.callStack[0..$-1];
 
 		break;
 
@@ -510,14 +493,17 @@ Result executeOne(DM* dm)
 
 Result executeUntilHalt(DM* dm, long limit = -1)
 {
-	while (dm.halt != true && limit != 0) {
+	while (dm.halt != true) {
 		auto res = dm.executeOne();
 		if (res != Result.OK) {
 			dm.halt = true;
 			return res;
 		}
-		if (limit > 1)
+		if (limit > 0)
 			limit--;
+
+		if (limit == 0)
+			return Result.INSTRUCTION_LIMIT_REACHED;
 	}
 	return Result.OK;
 }

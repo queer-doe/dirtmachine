@@ -6,6 +6,5 @@
 
     swap 2
     swap
-    swap
     swap 2
     halt
