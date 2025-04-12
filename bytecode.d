@@ -66,6 +66,78 @@ bool takesArgument(InstType type)
 	}
 }
 
+long wordsPopped(InstType type)
+{
+	final switch (type) {
+	case InstType.DUP:
+	case InstType.SWAP:
+		return -1;
+
+	case InstType.HALT:
+	case InstType.RET:
+	case InstType.PUSH:
+	case InstType.CALL:
+		return  0;
+
+	case InstType.JMPZ_REL:
+	case InstType.JMPZ_ABS:
+	case InstType.POP:
+		return  1;
+
+	case InstType.ADDI:
+	case InstType.SUBI:
+	case InstType.MULI:
+	case InstType.DIVI:
+	case InstType.ADDF:
+	case InstType.SUBF:
+	case InstType.MULF:
+	case InstType.DIVF:
+	case InstType.EQ:
+	case InstType.NEQ:
+	case InstType.GTI:
+	case InstType.LTI:
+	case InstType.GTU:
+	case InstType.LTU:
+	case InstType.GTF:
+	case InstType.LTF:
+		return  2;
+	}
+}
+
+long wordsPushed(InstType type)
+{
+	final switch (type) {
+	case InstType.HALT:
+	case InstType.POP:
+	case InstType.RET:
+	case InstType.SWAP:
+	case InstType.JMPZ_REL:
+	case InstType.JMPZ_ABS:
+	case InstType.CALL:
+		return 0;
+
+	case InstType.ADDI:
+	case InstType.SUBI:
+	case InstType.MULI:
+	case InstType.DIVI:
+	case InstType.ADDF:
+	case InstType.SUBF:
+	case InstType.MULF:
+	case InstType.DIVF:
+	case InstType.EQ:
+	case InstType.NEQ:
+	case InstType.GTI:
+	case InstType.LTI:
+	case InstType.GTU:
+	case InstType.LTU:
+	case InstType.GTF:
+	case InstType.LTF:
+	case InstType.PUSH:
+	case InstType.DUP:
+		return 1;
+	}
+}
+
 struct Inst
 {
     InstType type;
@@ -201,7 +273,9 @@ Result loadByteCode(DM* dm, ubyte[] data)
 	Inst[] instructions;
 	bool expectingInstruction = true;
 
-	for (ulong i = 0; i < data.length;) {
+	long entrypoint = (cast(ubytesLong)data[0..8]).asLong;
+
+	for (ulong i = 8; i < data.length;) {
 		if (expectingInstruction) {
 			if (InstType.min > data[i] || data[i] > InstType.max)
 				return Result.INVALID_INSTRUCTION;
@@ -217,6 +291,9 @@ Result loadByteCode(DM* dm, ubyte[] data)
 			i += 8;
 		}
 	}
+
+	dm.instPointer = entrypoint;
+
 	return dm.appendInstructions(instructions);
 }
 
@@ -228,7 +305,7 @@ Result loadFromFile(DM* dm, string filename)
 	catch (Exception o)
 		return Result.FILE_READ_ERROR;
 
-	if (data[0..4].assumeUTF == "DBC\2")
+	if (data[0..4].assumeUTF == "DBC\3")
 		data = data[4..$];
 	else
 		return Result.INVALID_FILE_HEADER;

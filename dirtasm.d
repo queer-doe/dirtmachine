@@ -7,6 +7,13 @@ import std.path;
 
 import bytecode;
 
+struct asmScope {
+	long pushed, popped;
+	long expectedPushed, expectedPopped;
+	long ln;
+	string name;
+}
+
 Result tryGetNumArg(string[] arr, Word* output)
 {
 	if (arr.length < 2)
@@ -65,7 +72,10 @@ int main(string[] args)
 		return 1;
 	}
 
+	ubytesLong entrypoint = { asLong: -1 };
 	long[string] labels;
+	asmScope[] scopes;
+	asmScope[] completedScopes;
 
 	ubyte[] byteCode;
 	Inst[] instructions;
@@ -92,6 +102,76 @@ int main(string[] args)
 			}
 			lines[ln] = "";
 			lines.insertInPlace(ln, newLines);
+			continue;
+		} else if (line.startsWith("#entrypoint")) {
+			if (entrypoint.asLong != -1) {
+				writefln("ERROR: %s:%d:0 Entrypoint already defined", args[1], ln+1);
+				err = true;
+				continue;
+			}
+			entrypoint.asLong = instCount;
+			continue;
+		} else if (line.startsWith("#scope {")) {
+			if (line.split("{").length < 1) {
+				writefln("ERROR: %s:%d:0 No name provided for scope", args[1], ln+1);
+				err = true;
+				continue;
+			}
+
+			auto argsString = line.split("{")[1].strip;
+			auto argsArr = argsString.split(" ");
+
+			long expectedPushed = -1;
+			long expectedPopped = -1;
+
+			if (argsArr.length == 3)
+				try {
+					expectedPushed = to!long(argsArr[1]);
+					expectedPopped = to!long(argsArr[2]);
+				} catch (Exception o) {
+					writefln("ERROR: %s:%d:0 Invalid arguments for `#scope`: %s", args[1], ln+1, argsArr);
+					err = true;
+					continue;
+				}
+			else if (argsArr.length == 1) {}
+			else {
+				writefln("ERROR: %s:%d:0 Invalid argument count for `#scope`", args[1], ln+1);
+				err = true;
+				continue;
+			}
+
+			string name = argsArr[0].strip;
+
+			scopes ~= asmScope(0, 0, expectedPushed, expectedPopped, ln+1, name);
+			continue;
+		} else if (line.startsWith("#scope }")) {
+			if (scopes.length < 1) {
+				writefln("ERROR: %s:%d:0 Attempting to close a non-existing scope", args[1], ln+1);
+				err = true;
+				continue;
+			}
+
+			auto currScope = scopes[$-1];
+
+			string name;
+			if (line.split("}").length < 1) {
+				writefln("WARNING: %s:%d:0 Closing unnamed scope", args[1], ln+1);
+				name = currScope.name;
+			} else
+				name = line.split("}")[1].strip;
+
+			if (currScope.name != name) {
+				writefln("ERROR: %s:%d:0 Attempting to close a non-matching scope: got `%s` but expected `%s`",
+						 args[1], ln+1, name, currScope.name);
+				err = true;
+				continue;
+			}
+
+			if (!err)
+				completedScopes ~= scopes[$-1];
+
+			scopes = scopes[0..$-1];
+
 			continue;
 		}
 
@@ -237,9 +317,14 @@ int main(string[] args)
 
 		default:
 			writefln("ERROR: %s:%d:0 Unknown instruction: %s", args[1], ln+1, inst[0]);
-			return 1;
+			err = true;
 		}
+
 		instCount++;
+		if (scopes.length > 0) {
+			scopes[$-1].pushed += instructions[$-1].type.wordsPushed;
+			scopes[$-1].popped += instructions[$-1].type.wordsPopped;
+		}
 	}
 
 	ulong jmpCount = 0;
@@ -251,17 +336,27 @@ int main(string[] args)
 				writefln("ERROR: %s:%d:0 Unknown label: `%s`", inst.fn, inst.ln, needLabels[jmpCount]);
 				err = true;
 			}
+
 			jmpCount++;
 		}
 		byteCode ~= inst.toByteCode();
+	}
+
+	if (scopes.length > 0) {
+		foreach (scp; scopes)
+			writefln("ERROR: %s:%d:0 No matching scope end for scope `%s`", args[1], scp.ln, scp.name);
+		err = true;
 	}
 
 	if (err) {
 		return 2;
 	}
 
+	if (entrypoint.asLong < 0)
+		entrypoint.asLong = 0;
 
-	std.file.write(args[2], "DBC\2");
+	std.file.write(args[2], "DBC\3");
+	std.file.append(args[2], entrypoint.asUbytes);
 	std.file.append(args[2], byteCode);
 	return 0;
 }
