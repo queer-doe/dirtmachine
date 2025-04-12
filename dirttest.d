@@ -105,6 +105,7 @@ int main(string[] args)
 					if (word.asI64 != expectedValues[idx]) {
 						errorout("Test `%s` failed: expected `%s` but got `%s`".format(file, expectedValues, dm.stack[0..$].reverse.asI64a), progName, 3);
 						err = true;
+						break;
 					}
 				}
 			}
