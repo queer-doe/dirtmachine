@@ -1,0 +1,22 @@
+; Note: this should error out the compiler
+
+#entrypoint
+#scope { main 1 4
+    call pop4
+    halt
+#scope } main
+
+pop4:
+#scope { pop4 0 4
+    call pop2
+    call pop2
+    ret
+#scope } pop4
+
+pop2:
+#scope { pop2 0 2
+    pop
+    pop
+    ret
+#scope } pop2
+
