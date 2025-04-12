@@ -136,7 +136,7 @@ struct Inst
     }
 
 	ubyte[] toByteCode() {
-		ubyteLong tmp;
+		ubytesLong tmp;
 		tmp.asLong = this.operand.asI64;
 		if (this.takesArgument)
 			return [cast(ubyte)this.type] ~ tmp.asUbytes;
@@ -146,7 +146,7 @@ struct Inst
 	}
 }
 
-union ubyteLong
+union ubytesLong
 {
 	ubyte[8] asUbytes;
 	long asLong;
@@ -212,7 +212,7 @@ Result loadByteCode(DM* dm, ubyte[] data)
 			instructions ~= Inst(type);
 		} else {
 			ubyte[8] tmp = data[i..i+8];
-			instructions[$-1].operand.asI64 = (cast(ubyteLong)tmp).asLong;
+			instructions[$-1].operand.asI64 = (cast(ubytesLong)tmp).asLong;
 			expectingInstruction = true;
 			i += 8;
 		}
