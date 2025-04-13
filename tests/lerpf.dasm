@@ -1,0 +1,26 @@
+; DIRT-TEST: 4611686018427387904
+
+    push 0.5
+    push 1.0
+    push 3.0
+    call lerpf
+    halt
+
+; ARGS: a b t
+; RETS: a + (b - a) * t
+lerpf:
+    ; a b t
+    swap 1
+    ; b a t
+    dup 1
+    ; a b a t
+    subf
+    ; (b-a) a t
+    swap 1
+    swap 2
+    ; t (b-a) a
+    mulf
+    ; t*(b-a) a
+    addf
+    ; t*(b-a)+a = a+(b-a*t)
+    ret
